@@ -254,6 +254,45 @@ def find_total_preinit(n, starts, ends, path):
 
 # find the number of uORFs
 # find pinits, pelons, pnds, preinits
+# def find_ptran(n, pinits, pelons, pnds, starts, ends):
+#     """
+#     FUNCTION SIGNATURE
+#     ------------------
+#     param n: int
+#         index of CDS
+#     param pinits: np.array(dtype=float)
+#         pinits of ORFs
+#     param pelons: np.array(dtype=float)
+#         pelons of ORFs
+#     param pnds: np.array(dtype=float)
+#         pnds of ORFs
+#     param starts: np.array(dtype=int)
+#         start positions of ORFs
+#     param ends: np.array(dtype=int)
+#         end positions of ORFs
+#     return ptran: float
+#         probability of translation of CDS
+#     return preach: float
+#         proabability of reaching the CDS
+#     """
+#     pinits = np.array(pinits)
+#     pelons = np.array(pelons)
+#     pnds = np.array(pnds)
+#     assert(len(pinits) == n+1)
+#     assert(len(pelons) == n+1)
+#     assert(len(starts) == n+1)
+#     paths = np.array(list(product('01',repeat=n)), dtype=float)
+#     ptemp_inits = pinits[:n]*pelons[:n]*pnds[:n]
+#     ptemp_n_inits = 1 - pinits[:n]
+#     ptemps = np.append(ptemp_n_inits.reshape(n,1), ptemp_inits.reshape(n,1))
+#     ppaths_temp = [np.product([ptemps[int(el)] for el in pth]) for pth in paths] # erroneous
+#     # if a cds is not reached, then 1-pinit should not be multiplied
+#     total_preinits = np.array([find_total_preinit(n, starts, ends, path) for path in paths])
+#     ppaths = [ppaths_temp[i]*total_preinits[i] for i in range(len(paths))]
+#     preach = sum(ppaths)
+#     ptran = preach*pinits[n]*pelons[n] # preach*pinit(cds)*pelon(cds)
+#     return ptran, preach
+
 def find_ptran(n, pinits, pelons, pnds, starts, ends):
     """
     FUNCTION SIGNATURE
@@ -275,22 +314,32 @@ def find_ptran(n, pinits, pelons, pnds, starts, ends):
     return preach: float
         proabability of reaching the CDS
     """
+
     pinits = np.array(pinits)
     pelons = np.array(pelons)
     pnds = np.array(pnds)
     assert(len(pinits) == n+1)
     assert(len(pelons) == n+1)
     assert(len(starts) == n+1)
-    paths = np.array(list(product('01',repeat=n)), dtype=float)
+
+    pr = np.zeros(n+1)
+    pr[0] = 1 # preach for first orf is 1
+
     ptemp_inits = pinits[:n]*pelons[:n]*pnds[:n]
     ptemp_n_inits = 1 - pinits[:n]
-    ptemps = np.append(ptemp_n_inits.reshape(n,1), ptemp_inits.reshape(n,1))
-    ppaths_temp = [np.product([ptemps[int(el)] for el in pth]) for pth in paths]
-    total_preinits = np.array([find_total_preinit(n, starts, ends, path) for path in paths])
-    ppaths = [ppaths_temp[i]*total_preinits[i] for i in range(len(paths))]
-    preach = sum(ppaths)
-    ptran = preach*pinits[n]*pelons[n] # preach*pinit(cds)*pelon(cds)
+
+    for i in range(1,n+1):
+        for j in range(i):
+            temp_arr = np.array([1-_reinit_func(starts[k]-ends[j]) for k in range(j+1, i)])
+            total_prenit = _reinit_func(starts[i]-ends[j])*np.product(temp_arr) # np.prod is 1.0 if temp_arr is empty
+            pr[i] += pr[j]*ptemp_inits[j]*total_prenit
+        pr[i] += np.product(ptemp_n_inits[:i])
+
+    preach = pr[n]
+    ptran = preach*pinits[n]*pelons[n]
+
     return ptran, preach
+
 
 def wrapper1(orf_fasta, genome_fasta):
     """
